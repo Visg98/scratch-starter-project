@@ -1,7 +1,49 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSprites } from "../context/SpriteContext";
 
-export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}, playTrigger, spriteId, renderSprite: RenderSprite }) {
+export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, direction: 90}, playTrigger, spriteId, renderSprite: RenderSprite }) {
+    const [actions, setActions] = useState([]);
+    useEffect(() => {
+        // Convert spriteActions and split move actions into increments of 10 or less
+        if (!spriteActions || spriteActions.length === 0) {
+            setActions([]);
+            return;
+        }
+        
+        const processedActions = spriteActions.map(eventAction => {
+            const processedEventActions = [];
+            
+            eventAction.actions?.forEach(action => {
+                if (action.type === "move") {
+                    const steps = action.payload?.steps ?? 0;
+                    const absSteps = Math.abs(steps);
+                    const sign = steps < 0 ? -1 : 1;
+                    
+                    // Split into increments of 10 or less
+                    let remainingSteps = absSteps;
+                    while (remainingSteps > 0) {
+                        const stepIncrement = Math.min(10, remainingSteps);
+                        processedEventActions.push({
+                            type: "move",
+                            payload: {
+                                steps: sign * stepIncrement
+                            }
+                        });
+                        remainingSteps -= stepIncrement;
+                    }
+                } else {
+                    // Keep all other actions as is
+                    processedEventActions.push(action);
+                }
+            });
+            
+            return {
+                event: eventAction.event,
+                actions: processedEventActions
+            };
+        });
+        setActions(processedActions);
+    }, [spriteActions]);
     const [state, setState] = useState({...startPos, bubble: null});
     const [currentEventType, setCurrentEventType] = useState(null);
     const [currentActionIndex, setCurrentActionIndex] = useState(-1);
@@ -13,6 +55,7 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
     const currentActionIndexRef = useRef(-1);
     const actionsRef = useRef(actions);
     const startPosRef = useRef(startPos);
+    const bubbleTimeoutRef = useRef(null);
     
     // Update refs when state/props change
     useEffect(() => {
@@ -88,6 +131,23 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
                 steps
             );
             newState = { ...newPos, bubble: currentState.bubble };
+            
+            // Update state
+            setState(newState);
+            stateRef.current = newState;
+            
+            // Advance to next action
+            const nextIndex = currentIndex + 1;
+            setCurrentActionIndex(nextIndex);
+            currentActionIndexRef.current = nextIndex;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
+                    currentEvent: currentEvent
+                });
+            }
         } else if (currentAction.type === "turn") {
             const degrees = currentAction.payload?.degrees ?? 0;
             let newDirection = (currentState.direction + degrees) % 360;
@@ -95,36 +155,90 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
                 newDirection += 360;
             }
             newState = { ...currentState, direction: newDirection };
+            
+            // Update state
+            setState(newState);
+            stateRef.current = newState;
+            
+            // Advance to next action
+            const nextIndex = currentIndex + 1;
+            setCurrentActionIndex(nextIndex);
+            currentActionIndexRef.current = nextIndex;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
+                    currentEvent: currentEvent
+                });
+            }
         } else if (currentAction.type === "goto") {
             const { x = 0, y = 0 } = currentAction.payload || {};
             newState = { ...currentState, x, y };
+            
+            // Update state
+            setState(newState);
+            stateRef.current = newState;
+            
+            // Advance to next action
+            const nextIndex = currentIndex + 1;
+            setCurrentActionIndex(nextIndex);
+            currentActionIndexRef.current = nextIndex;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
+                    currentEvent: currentEvent
+                });
+            }
         } else if (currentAction.type === "say" || currentAction.type === "think") {
-            const { text = "" } = currentAction.payload || {};
+            const { text = "", seconds = 2 } = currentAction.payload || {};
             newState = { ...currentState, bubble: { type: currentAction.type, text } };
-        }
-        
-        // Update state
-        setState(newState);
-        stateRef.current = newState;
-        
-        // Advance to next action
-        const nextIndex = currentIndex + 1;
-        setCurrentActionIndex(nextIndex);
-        currentActionIndexRef.current = nextIndex;
-        
-        // Update sprite in context
-        if (spriteId) {
-            updateSprite(spriteId, {
-                curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
-                currentEvent: currentEvent,
-                actionIndex: nextIndex
-            });
+            
+            // Update state with bubble
+            setState(newState);
+            stateRef.current = newState;
+            
+            // Clear any existing timeout
+            if (bubbleTimeoutRef.current) {
+                clearTimeout(bubbleTimeoutRef.current);
+            }
+            
+            // Set timeout to clear bubble after specified duration
+            bubbleTimeoutRef.current = setTimeout(() => {
+                // Clear bubble
+                setState((prev) => {
+                    const clearedState = { ...prev, bubble: null };
+                    stateRef.current = clearedState;
+                    return clearedState;
+                });
+            }, seconds * 1000);
+            
+            // Advance to next action immediately
+            const nextIndex = currentIndex + 1;
+            setCurrentActionIndex(nextIndex);
+            currentActionIndexRef.current = nextIndex;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
+                    currentEvent: currentEvent
+                });
+            }
         }
     };
 
     // Execute the first action when play is triggered
     useEffect(() => {
         if(playTrigger) {
+            // Clear any existing bubble timeout
+            if (bubbleTimeoutRef.current) {
+                clearTimeout(bubbleTimeoutRef.current);
+                bubbleTimeoutRef.current = null;
+            }
+            
             // Reset to start position
             const resetState = {...startPosRef.current, bubble: null};
             setState(resetState);
@@ -139,8 +253,7 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: startPosRef.current.x, y: startPosRef.current.y, direction: startPosRef.current.direction },
-                    currentEvent: 'play',
-                    actionIndex: 0
+                    currentEvent: 'play'
                 });
             }
         }
@@ -154,8 +267,33 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
         
         return () => {
             clearInterval(intervalId);
+            // Clear bubble timeout on cleanup
+            if (bubbleTimeoutRef.current) {
+                clearTimeout(bubbleTimeoutRef.current);
+            }
         };
     }, []);
+    
+    // Handle click on sprite
+    const handleSpriteClick = () => {
+        // Check if click actions exist
+        const clickActions = actionsRef.current?.find(a => a.event === 'click');
+        if (clickActions && clickActions.actions && clickActions.actions.length > 0) {
+            // Switch to click event and reset action index
+            setCurrentEventType('click');
+            currentEventTypeRef.current = 'click';
+            setCurrentActionIndex(0);
+            currentActionIndexRef.current = 0;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    currentEvent: 'click'
+                });
+            }
+        }
+    };
+    
     
     return (
         <div
@@ -165,7 +303,11 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
             height: 100,
             top: state.y,
             left: state.x,
+            cursor: "pointer",
+            transform: `rotate(${state.direction}deg)`,
+            transformOrigin: "center center",
           }}
+          onClick={handleSpriteClick}
         >
           {RenderSprite ? <RenderSprite /> : <div>No sprite render component</div>}
           {state.bubble ? (
@@ -174,12 +316,21 @@ export function SpriteAnimation({actions, startPos = {x: 0, y: 0, direction: 90}
                 position: "absolute",
                 top: -30,
                 left: 0,
-                padding: "4px 8px",
+                padding: state.bubble.type === "think" ? "12px" : "4px 8px",
                 background: "white",
                 border: "1px solid #ddd",
-                borderRadius: 6,
+                borderRadius: state.bubble.type === "think" ? "50%" : 6,
                 boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
                 fontSize: 12,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: state.bubble.type === "think" ? "50px" : "auto",
+                minHeight: state.bubble.type === "think" ? "50px" : "auto",
+                aspectRatio: state.bubble.type === "think" ? "1" : "auto",
+                maxWidth: state.bubble.type === "think" ? "150px" : "200px",
+                wordWrap: "break-word",
+                textAlign: "center",
               }}
             >
               {state.bubble.text}

@@ -108,7 +108,7 @@ export default function PreviewArea() {
             <SpriteAnimation
               key={sprite.id}
               spriteId={sprite.id}
-              actions={sprite.actions || []}
+              spriteActions={sprite.actions || []}
               startPos={{x: sprite.x, y: sprite.y, direction: sprite.direction}}
               playTrigger={playTrigger}
               renderSprite={sprite.render}
