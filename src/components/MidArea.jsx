@@ -9,6 +9,7 @@ export default function MidArea() {
   const [draggedOver, setDraggedOver] = useState(null);
   const [draggedActionIndex, setDraggedActionIndex] = useState(null);
   const [draggedActionEventType, setDraggedActionEventType] = useState(null);
+  const [draggedOverRepeat, setDraggedOverRepeat] = useState(null); // {eventType, actionIndex}
 
   // Check if there are no sprites
   if (sprites.length === 0) {
@@ -55,10 +56,11 @@ export default function MidArea() {
     setDraggedOver(null);
   };
 
-  const handleDrop = (e, eventType) => {
+  const handleDrop = (e, eventType, repeatActionIndex = null) => {
     e.preventDefault();
     e.stopPropagation();
     setDraggedOver(null);
+    setDraggedOverRepeat(null);
 
     const actionType = e.dataTransfer.getData('actionType');
     const actionLabel = e.dataTransfer.getData('actionLabel');
@@ -97,11 +99,35 @@ export default function MidArea() {
           type: "think",
           payload: { text: "Hmm", seconds: 2 },
         };
+      } else if (actionType === "repeat") {
+        // For repeat blocks, we'll handle it specially - don't add it as a single action
+        // Instead, we'll create a temporary repeat structure that users can add actions to
+        // But for now, just create an empty repeat structure
+        action = {
+          type: "repeat",
+          payload: { count: 2, actions: [] },
+        };
       } else {
         action = {
           type: actionType,
           payload: {},
         };
+      }
+
+      // If dropping into a repeat block, add to its nested actions
+      if (repeatActionIndex !== null && selectedSprite) {
+        const event = eventType === 'playEvent' ? 'play' : 'click';
+        const eventActionObj = selectedSprite.actions?.find((a) => a.event === event);
+        const eventActions = eventActionObj?.actions || [];
+        const repeatAction = eventActions[repeatActionIndex];
+        if (repeatAction && repeatAction.type === 'repeat') {
+          const newActions = [...(repeatAction.payload?.actions || []), action];
+          handleUpdateActionValue(eventType, repeatActionIndex, {
+            ...repeatAction.payload,
+            actions: newActions,
+          });
+          return;
+        }
       }
 
       addActionToEvent(selectedSprite.id, eventType, action);
@@ -165,9 +191,13 @@ export default function MidArea() {
 
   const renderActionBlock = (action, eventType, actionIndex) => {
     let icon = null;
-    const bgColor = action.type === "say" || action.type === "think" 
-      ? "bg-purple-500" 
-      : "bg-blue-500";
+    let bgColor = "bg-blue-500";
+    
+    if (action.type === "say" || action.type === "think") {
+      bgColor = "bg-purple-500";
+    } else if (action.type === "repeat") {
+      bgColor = "bg-orange-500";
+    }
     
     // Check if it's a turn action with negative degrees (left) or positive (right)
     if (action.type === 'turn') {
@@ -182,6 +212,260 @@ export default function MidArea() {
     const isDragOver = draggedActionIndex !== null && 
                        draggedActionIndex !== actionIndex && 
                        draggedActionEventType === eventType;
+    const isDraggedOverRepeat = draggedOverRepeat?.eventType === eventType && draggedOverRepeat?.actionIndex === actionIndex;
+
+    // Handle repeat block specially
+    if (action.type === "repeat") {
+      const repeatActions = action.payload?.actions || [];
+      return (
+        <div
+          key={actionIndex}
+          draggable
+          onDragStart={(e) => handleActionDragStart(e, eventType, actionIndex)}
+          onDragOver={(e) => handleActionDragOver(e, eventType, actionIndex)}
+          onDrop={(e) => handleActionDrop(e, eventType, actionIndex)}
+          onDragEnd={handleActionDragEnd}
+          className={`${bgColor} text-white px-2 py-1 my-1 text-sm rounded cursor-move ${
+            isDragging ? "opacity-50" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center flex-1 gap-2">
+              <span>Repeat</span>
+              <input
+                type="number"
+                value={action.payload?.count || 2}
+                onChange={(e) => {
+                  const count = parseInt(e.target.value) || 1;
+                  handleUpdateActionValue(eventType, actionIndex, {
+                    ...action.payload,
+                    count,
+                  });
+                }}
+                className="w-16 px-1 py-0.5 text-black text-sm rounded border border-orange-300"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDragStart={(e) => e.stopPropagation()}
+              />
+              <span>times</span>
+            </div>
+            <button
+              onClick={() => handleRemoveAction(eventType, actionIndex)}
+              className="text-white hover:text-red-200 text-lg font-bold px-1 ml-2"
+              title="Remove action"
+            >
+              ×
+            </button>
+          </div>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDraggedOverRepeat({ eventType, actionIndex });
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDraggedOverRepeat(null);
+            }}
+            onDrop={(e) => handleDrop(e, eventType, actionIndex)}
+            className={`min-h-[50px] p-2 border-2 border-dashed rounded mt-1 ${
+              isDraggedOverRepeat
+                ? 'border-white bg-orange-600'
+                : 'border-orange-300 bg-orange-400'
+            }`}
+          >
+            {repeatActions.length === 0 ? (
+              <p className="text-white text-xs text-center py-2 opacity-75">
+                Drag animations here
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {repeatActions.map((nestedAction, nestedIndex) => {
+                  // Determine background color based on action type
+                  let nestedBgColor = "bg-orange-600";
+                  if (nestedAction.type === "say" || nestedAction.type === "think") {
+                    nestedBgColor = "bg-purple-600";
+                  } else if (nestedAction.type === "move" || nestedAction.type === "turn" || nestedAction.type === "goto") {
+                    nestedBgColor = "bg-blue-600";
+                  }
+                  
+                  return (
+                    <div
+                      key={nestedIndex}
+                      className={`${nestedBgColor} text-white px-2 py-1 text-xs rounded flex items-center justify-between`}
+                    >
+                      <div className="flex-1 flex items-center gap-1">
+                        {nestedAction.type === "move" && (
+                          <>
+                            <span>Move</span>
+                            <input
+                              type="number"
+                              value={nestedAction.payload?.steps || 0}
+                              onChange={(e) => {
+                                const steps = parseFloat(e.target.value) || 0;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, steps }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-12 px-1 py-0 text-black text-xs rounded border border-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            <span>steps</span>
+                          </>
+                        )}
+                        {nestedAction.type === "turn" && (
+                          <>
+                            <span>Turn</span>
+                            <input
+                              type="number"
+                              value={Math.abs(nestedAction.payload?.degrees || 0)}
+                              onChange={(e) => {
+                                const degrees = parseFloat(e.target.value) || 0;
+                                const sign = nestedAction.payload?.degrees < 0 ? -1 : 1;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, degrees: sign * degrees }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-12 px-1 py-0 text-black text-xs rounded border border-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            <span>degrees</span>
+                          </>
+                        )}
+                        {nestedAction.type === "goto" && (
+                          <>
+                            <span>Go to x:</span>
+                            <input
+                              type="number"
+                              value={nestedAction.payload?.x || 0}
+                              onChange={(e) => {
+                                const x = parseFloat(e.target.value) || 0;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, x, y: nestedAction.payload?.y || 0 }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-10 px-1 py-0 text-black text-xs rounded border border-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            <span>y:</span>
+                            <input
+                              type="number"
+                              value={nestedAction.payload?.y || 0}
+                              onChange={(e) => {
+                                const y = parseFloat(e.target.value) || 0;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, x: nestedAction.payload?.x || 0, y }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-10 px-1 py-0 text-black text-xs rounded border border-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </>
+                        )}
+                        {nestedAction.type === "say" && (
+                          <>
+                            <span>Say</span>
+                            <input
+                              type="text"
+                              value={nestedAction.payload?.text || ""}
+                              onChange={(e) => {
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, text: e.target.value }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              placeholder="Hello"
+                              className="w-16 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </>
+                        )}
+                        {nestedAction.type === "think" && (
+                          <>
+                            <span>Think</span>
+                            <input
+                              type="text"
+                              value={nestedAction.payload?.text || ""}
+                              onChange={(e) => {
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, text: e.target.value }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              placeholder="Hmm"
+                              className="w-16 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </>
+                        )}
+                        {!["move", "turn", "goto", "say", "think"].includes(nestedAction.type) && (
+                          <span>{getActionLabel(nestedAction)}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const newActions = repeatActions.filter((_, idx) => idx !== nestedIndex);
+                          handleUpdateActionValue(eventType, actionIndex, {
+                            ...action.payload,
+                            actions: newActions,
+                          });
+                        }}
+                        className="text-white hover:text-red-200 text-sm font-bold px-1 ml-2"
+                        title="Remove nested action"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div
@@ -328,7 +612,7 @@ export default function MidArea() {
               <span>seconds</span>
             </>
           )}
-          {action.type !== "move" && action.type !== "turn" && action.type !== "goto" && action.type !== "say" && action.type !== "think" && (
+          {action.type !== "move" && action.type !== "turn" && action.type !== "goto" && action.type !== "say" && action.type !== "think" && action.type !== "repeat" && (
             <span>{getActionLabel(action)}</span>
           )}
         </div>

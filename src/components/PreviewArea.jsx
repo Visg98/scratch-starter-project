@@ -139,6 +139,7 @@ export default function PreviewArea() {
               spriteActions={sprite.actions || []}
               startPos={{x: sprite.x, y: sprite.y, direction: sprite.direction}}
               playTrigger={playTrigger}
+              restartTrigger={restartTrigger}
               renderSprite={sprite.render}
             />
           );

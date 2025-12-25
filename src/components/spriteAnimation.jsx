@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSprites } from "../context/SpriteContext";
 
-export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, direction: 90}, playTrigger, spriteId, renderSprite: RenderSprite }) {
+export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, direction: 90}, playTrigger, restartTrigger, spriteId, renderSprite: RenderSprite }) {
     const [actions, setActions] = useState([]);
     useEffect(() => {
         // Convert spriteActions and split move actions into increments of 10 or less
@@ -14,7 +14,38 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             const processedEventActions = [];
             
             eventAction.actions?.forEach(action => {
-                if (action.type === "move") {
+                if (action.type === "repeat") {
+                    // Expand repeat block: repeat nested actions count times
+                    const count = action.payload?.count || 1;
+                    const nestedActions = action.payload?.actions || [];
+                    
+                    for (let i = 0; i < count; i++) {
+                        nestedActions.forEach(nestedAction => {
+                            // Process nested actions (including move splitting)
+                            if (nestedAction.type === "move") {
+                                const steps = nestedAction.payload?.steps ?? 0;
+                                const absSteps = Math.abs(steps);
+                                const sign = steps < 0 ? -1 : 1;
+                                
+                                // Split into increments of 10 or less
+                                let remainingSteps = absSteps;
+                                while (remainingSteps > 0) {
+                                    const stepIncrement = Math.min(10, remainingSteps);
+                                    processedEventActions.push({
+                                        type: "move",
+                                        payload: {
+                                            steps: sign * stepIncrement
+                                        }
+                                    });
+                                    remainingSteps -= stepIncrement;
+                                }
+                            } else {
+                                // Keep all other nested actions as is
+                                processedEventActions.push(nestedAction);
+                            }
+                        });
+                    }
+                } else if (action.type === "move") {
                     const steps = action.payload?.steps ?? 0;
                     const absSteps = Math.abs(steps);
                     const sign = steps < 0 ? -1 : 1;
@@ -263,6 +294,37 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             }
         }
     }, [playTrigger]);
+
+    // Handle restart trigger - reset sprite to initial position
+    useEffect(() => {
+        if (restartTrigger !== undefined && restartTrigger > 0) {
+            // Clear any existing bubble timeout
+            if (bubbleTimeoutRef.current) {
+                clearTimeout(bubbleTimeoutRef.current);
+                bubbleTimeoutRef.current = null;
+            }
+            
+            // Reset to start position
+            const resetState = {...startPosRef.current, bubble: null};
+            setState(resetState);
+            stateRef.current = resetState;
+            
+            // Clear current event and action index
+            setCurrentEventType(null);
+            currentEventTypeRef.current = null;
+            setCurrentActionIndex(-1);
+            currentActionIndexRef.current = -1;
+            
+            // Update sprite in context
+            if (spriteId) {
+                updateSprite(spriteId, {
+                    curentPos: { x: startPosRef.current.x, y: startPosRef.current.y, direction: startPosRef.current.direction },
+                    currentEvent: null,
+                    modifiedActionIndex: -1
+                });
+            }
+        }
+    }, [restartTrigger]);
 
     // Call processCurrentAction every 50ms
     useEffect(() => {
