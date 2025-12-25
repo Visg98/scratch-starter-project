@@ -83,7 +83,7 @@ export default function Sidebar() {
   return (
     <>
       <div className="w-60 flex-none h-full flex flex-col border-r border-gray-200">
-        <div className="flex-none">
+        <div className="flex-none overflow-y-auto">
           {/* Section 1: Motion Blocks */}
           <div className="p-2">
             <div className="font-bold"> {"Motion"} </div>
@@ -153,6 +153,19 @@ export default function Sidebar() {
               className="flex flex-row flex-wrap bg-purple-500 text-white px-2 py-1 my-2 text-sm cursor-move"
             >
               {"Think Hmm"}
+            </div>
+          </div>
+          <div className="p-2">
+            <div className="font-bold"> {"Control"} </div>
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('actionType', 'repeat');
+                e.dataTransfer.setData('actionLabel', 'Repeat animations');
+              }}
+              className="flex flex-row flex-wrap bg-yellow-500 text-white px-2 py-1 my-2 text-sm cursor-move"
+            >
+              {"Repeat animations"}
             </div>
           </div>
         </div>
