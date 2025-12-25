@@ -7,7 +7,7 @@ import { checkCollision } from "../utils/collisionDetection";
 export default function PreviewArea() {
   const [playTrigger, setPlayTrigger] = useState(0);
   const [restartTrigger, setRestartTrigger] = useState(0);
-  const { sprites } = useSprites();
+  const { sprites, updateSpriteActions, getSprite } = useSprites();
   
   // Track execution state for each sprite
   const executionStates = useRef({});
@@ -29,35 +29,63 @@ export default function PreviewArea() {
   };
 
   // Check collisions between all sprites
-  const checkCollisions = useCallback(() => {
-    const spriteIds = Object.keys(executionStates.current);
-    
-    // Need at least 2 sprites to check collisions
-    if (spriteIds.length < 2) return;
-    
-    for (let i = 0; i < spriteIds.length; i++) {
-      for (let j = i + 1; j < spriteIds.length; j++) {
-        const spriteId1 = spriteIds[i];
-        const spriteId2 = spriteIds[j];
-        const state1 = executionStates.current[spriteId1];
-        const state2 = executionStates.current[spriteId2];
-        
-        if (state1?.position && state2?.position && state1.eventType && state2.eventType) {
-          if (checkCollision(state1.position, state2.position)) {
-            // Collision detected - handle as needed
+  const checkCollisions = () => {
+    console.log("checkCollisions...");
+    for(let i = 0; i < sprites.length; i++) {
+      if(sprites[i].cooldown > 0) {
+        updateSpriteCooldown(sprites[i].id, sprites[i].cooldown-1);
+        continue
+      };
+      for(let j = i + 1; j < sprites.length; j++) {
+        if(sprites[j].cooldown > 0) {
+          updateSpriteCooldown(sprites[j].id, sprites[j].cooldown-1);
+          continue;
+        };
+        console.log("=>", i, j);
+        const sprite1 = sprites[i];
+        const sprite2 = sprites[j];
+        if(checkCollision(sprite1, sprite2)) {
+          // Collision detected - swap actions between sprites
+          if (sprite1 && sprite2) {
+            const sprite1Actions = sprite1.actions || [];
+            const sprite2Actions = sprite2.actions || [];
+            
+            // Get active and inactive event types for each sprite
+            const s1ActiveEvent = sprite1.currentEvent; // "play" or "click"
+            const s2ActiveEvent = sprite2.currentEvent; // "play" or "click"
+            
+            // Get active and inactive event actions for sprite1
+            const s1ActiveActions = sprite1Actions.find(a => a.event === s1ActiveEvent) || { event: s1ActiveEvent, actions: [] };
+            const s1InactiveEvent = s1ActiveEvent === "play" ? "click" : "play";
+            const s1InactiveActions = sprite1Actions.find(a => a.event === s1InactiveEvent) || { event: s1InactiveEvent, actions: [] };
+            
+            // Get active and inactive event actions for sprite2
+            const s2ActiveActions = sprite2Actions.find(a => a.event === s2ActiveEvent) || { event: s2ActiveEvent, actions: [] };
+            const s2InactiveEvent = s2ActiveEvent === "play" ? "click" : "play";
+            const s2InactiveActions = sprite2Actions.find(a => a.event === s2InactiveEvent) || { event: s2InactiveEvent, actions: [] };
+            
+            // Swap active with active, inactive with inactive
+            // Create new actions arrays with swapped actions
+            const newSprite1Actions = [
+              { ...s2ActiveActions, event: s1ActiveEvent }, // s1 gets s2's active actions as its active event
+              { ...s2InactiveActions, event: s1InactiveEvent } // s1 gets s2's inactive actions as its inactive event
+            ];
+            
+            const newSprite2Actions = [
+              { ...s1ActiveActions, event: s2ActiveEvent }, // s2 gets s1's active actions as its active event
+              { ...s1InactiveActions, event: s2InactiveEvent } // s2 gets s1's inactive actions as its inactive event
+            ];
+            
+            // Update both sprites with swapped actions
+            updateSpriteActions(sprite1.id, newSprite1Actions);
+            updateSpriteActions(sprite2.id, newSprite2Actions);
+            updateSpriteCooldown(sprite1.id, 5);
+            updateSpriteCooldown(sprite2.id, 5);
           }
         }
       }
     }
-  }, []); // No dependencies - uses refs for everything
-
-  // Handle state updates from SpriteRunner
-  const handleSpriteStateUpdate = useCallback((spriteId) => (stateUpdate) => {
-    executionStates.current[spriteId] = {
-      ...executionStates.current[spriteId],
-      ...stateUpdate,
-    };
-  }, []);
+  }
 
   // Periodic collision check every 50ms
   useEffect(() => {
@@ -67,7 +95,7 @@ export default function PreviewArea() {
     if (playTrigger > 0) {
       intervalId = setInterval(() => {
         checkCollisions();
-      }, 50); // Check every 50 milliseconds
+      }, 600); // Check every 600 milliseconds
     }
     
     return () => {
@@ -75,7 +103,7 @@ export default function PreviewArea() {
         clearInterval(intervalId);
       }
     };
-  }, [playTrigger, checkCollisions]);
+  }, [playTrigger]);
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-2">

@@ -20,7 +20,8 @@ export function SpriteProvider({ children }) {
       ],
       curentPos: {x: sprite.x ?? 0, y: sprite.y ?? 0, direction: sprite.direction ?? 90},
       currentEvent: null,
-      actionIndex: -1
+      modifiedActionIndex: -1,
+      cooldown: 0,
     };
     setSprites((prev) => [...prev, newSprite]);
     return newSprite.id;
@@ -41,7 +42,15 @@ export function SpriteProvider({ children }) {
   const updateSpriteActions = (spriteId, actions) => {
     setSprites((prev) =>
       prev.map((sprite) =>
-        sprite.id === spriteId ? { ...sprite, actions } : sprite
+        sprite.id === spriteId ? { ...sprite, actions:[...actions] } : sprite
+      )
+    );
+  };
+
+  const updateSpriteCooldown = (spriteId, cooldown) => {
+    setSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === spriteId ? { ...sprite, cooldown } : sprite
       )
     );
   };
@@ -183,6 +192,7 @@ export function SpriteProvider({ children }) {
         deleteSprite,
         updateSprite,
         updateSpriteActions,
+        updateSpriteCooldown,
         getSprite,
         addActionToEvent,
         removeActionFromEvent,

@@ -145,7 +145,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
-                    currentEvent: currentEvent
+                    currentEvent: currentEvent,
+                    modifiedActionIndex: nextIndex
                 });
             }
         } else if (currentAction.type === "turn") {
@@ -169,7 +170,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
-                    currentEvent: currentEvent
+                    currentEvent: currentEvent,
+                    modifiedActionIndex: nextIndex
                 });
             }
         } else if (currentAction.type === "goto") {
@@ -189,7 +191,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
-                    currentEvent: currentEvent
+                    currentEvent: currentEvent,
+                    modifiedActionIndex: nextIndex
                 });
             }
         } else if (currentAction.type === "say" || currentAction.type === "think") {
@@ -224,7 +227,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: newState.x, y: newState.y, direction: newState.direction },
-                    currentEvent: currentEvent
+                    currentEvent: currentEvent,
+                    modifiedActionIndex: nextIndex
                 });
             }
         }
@@ -253,7 +257,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             if (spriteId) {
                 updateSprite(spriteId, {
                     curentPos: { x: startPosRef.current.x, y: startPosRef.current.y, direction: startPosRef.current.direction },
-                    currentEvent: 'play'
+                    currentEvent: 'play',
+                    modifiedActionIndex: 0
                 });
             }
         }
@@ -288,7 +293,8 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
             // Update sprite in context
             if (spriteId) {
                 updateSprite(spriteId, {
-                    currentEvent: 'click'
+                    currentEvent: 'click',
+                    modifiedActionIndex: 0
                 });
             }
         }
