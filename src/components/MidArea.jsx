@@ -100,9 +100,6 @@ export default function MidArea() {
           payload: { text: "Hmm", seconds: 2 },
         };
       } else if (actionType === "repeat") {
-        // For repeat blocks, we'll handle it specially - don't add it as a single action
-        // Instead, we'll create a temporary repeat structure that users can add actions to
-        // But for now, just create an empty repeat structure
         action = {
           type: "repeat",
           payload: { count: 2, actions: [] },
@@ -114,7 +111,6 @@ export default function MidArea() {
         };
       }
 
-      // If dropping into a repeat block, add to its nested actions
       if (repeatActionIndex !== null && selectedSprite) {
         const event = eventType === 'playEvent' ? 'play' : 'click';
         const eventActionObj = selectedSprite.actions?.find((a) => a.event === event);
@@ -214,7 +210,6 @@ export default function MidArea() {
                        draggedActionEventType === eventType;
     const isDraggedOverRepeat = draggedOverRepeat?.eventType === eventType && draggedOverRepeat?.actionIndex === actionIndex;
 
-    // Handle repeat block specially
     if (action.type === "repeat") {
       const repeatActions = action.payload?.actions || [];
       return (
@@ -282,7 +277,6 @@ export default function MidArea() {
             ) : (
               <div className="space-y-1">
                 {repeatActions.map((nestedAction, nestedIndex) => {
-                  // Determine background color based on action type
                   let nestedBgColor = "bg-orange-600";
                   if (nestedAction.type === "say" || nestedAction.type === "think") {
                     nestedBgColor = "bg-purple-600";
@@ -409,10 +403,31 @@ export default function MidArea() {
                                 });
                               }}
                               placeholder="Hello"
-                              className="w-16 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              className="w-12 px-1 py-0 text-black text-xs rounded border border-purple-300"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                             />
+                            <span>for</span>
+                            <input
+                              type="number"
+                              value={nestedAction.payload?.seconds || 2}
+                              onChange={(e) => {
+                                const seconds = parseFloat(e.target.value) || 0;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, seconds }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-10 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            <span>seconds</span>
                           </>
                         )}
                         {nestedAction.type === "think" && (
@@ -433,10 +448,31 @@ export default function MidArea() {
                                 });
                               }}
                               placeholder="Hmm"
-                              className="w-16 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              className="w-12 px-1 py-0 text-black text-xs rounded border border-purple-300"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                             />
+                            <span>for</span>
+                            <input
+                              type="number"
+                              value={nestedAction.payload?.seconds || 2}
+                              onChange={(e) => {
+                                const seconds = parseFloat(e.target.value) || 0;
+                                const newActions = [...repeatActions];
+                                newActions[nestedIndex] = {
+                                  ...nestedAction,
+                                  payload: { ...nestedAction.payload, seconds }
+                                };
+                                handleUpdateActionValue(eventType, actionIndex, {
+                                  ...action.payload,
+                                  actions: newActions,
+                                });
+                              }}
+                              className="w-10 px-1 py-0 text-black text-xs rounded border border-purple-300"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                            <span>seconds</span>
                           </>
                         )}
                         {!["move", "turn", "goto", "say", "think"].includes(nestedAction.type) && (
