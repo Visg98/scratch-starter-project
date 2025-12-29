@@ -32,7 +32,7 @@ export function SpriteProvider({ children }) {
   };
 
   const updateSprite = (spriteId, updates) => {
-    setSprites((prev) =>
+      setSprites((prev) =>
       prev.map((sprite) =>
         sprite.id === spriteId ? { ...sprite, ...updates } : sprite
       )

@@ -5,7 +5,6 @@ import { SpriteProvider } from "./context/SpriteContext";
 import { SelectedSpriteProvider } from "./context/SelectedSpriteContext";
 import "tailwindcss/tailwind.css";
 
-console.log("hi");
 
 ReactDOM.render(
   <React.StrictMode>
