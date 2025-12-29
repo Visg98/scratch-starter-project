@@ -7,10 +7,13 @@ import { checkCollision } from "../utils/collisionDetection";
 export default function PreviewArea() {
   const [playTrigger, setPlayTrigger] = useState(0);
   const [restartTrigger, setRestartTrigger] = useState(0);
-  const { sprites, updateSpriteActions, getSprite } = useSprites();
-  
+  const { sprites, updateSpriteActions, getSprite, updateSpriteCooldown } = useSprites();
   // Track execution state for each sprite
   const executionStates = useRef({});
+  const latestCheckRef = useRef(() => {});
+  useEffect(() => {
+    latestCheckRef.current = checkCollisions;
+  });
   
   // Clear execution states when play starts
   useEffect(() => {
@@ -30,18 +33,17 @@ export default function PreviewArea() {
 
   // Check collisions between all sprites
   const checkCollisions = () => {
-    console.log("checkCollisions...");
     for(let i = 0; i < sprites.length; i++) {
       if(sprites[i].cooldown > 0) {
         updateSpriteCooldown(sprites[i].id, sprites[i].cooldown-1);
         continue
-      };
+      }
       for(let j = i + 1; j < sprites.length; j++) {
         if(sprites[j].cooldown > 0) {
           updateSpriteCooldown(sprites[j].id, sprites[j].cooldown-1);
           continue;
-        };
-        console.log("=>", i, j);
+        }
+
         const sprite1 = sprites[i];
         const sprite2 = sprites[j];
         if(checkCollision(sprite1, sprite2)) {
@@ -89,20 +91,13 @@ export default function PreviewArea() {
 
   // Periodic collision check every 50ms
   useEffect(() => {
-    let intervalId;
-    
-    // Only run collision checks when play is active (sprites are moving)
-    if (playTrigger > 0) {
-      intervalId = setInterval(() => {
-        checkCollisions();
-      }, 600); // Check every 600 milliseconds
-    }
-    
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
+    if (playTrigger <= 0) return;
+
+    const id = setInterval(() => {
+      latestCheckRef.current();
+    }, 100);
+
+    return () => clearInterval(id);
   }, [playTrigger]);
 
   return (
