@@ -242,7 +242,7 @@ export function SpriteAnimation({spriteActions, startPos = {x: 0, y: 0, directio
                 bubbleTimeoutRef.current = null;
             }
             
-            const resetState = {...startPosRef.current, bubble: null};
+            const resetState = {...stateRef.current, bubble: null};
             setState(resetState);
             stateRef.current = resetState;
             

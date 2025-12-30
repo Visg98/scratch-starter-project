@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import SpriteRunner from "./SpriteRunner";
 import { SpriteAnimation } from "./spriteAnimation";
 import { useSprites } from "../context/SpriteContext";
-import { checkCollision } from "../utils/collisionDetection";
+import {checkCollision, clear} from "../utils/collisionDetection";
 
 export default function PreviewArea() {
   const [playTrigger, setPlayTrigger] = useState(0);
@@ -29,21 +28,13 @@ export default function PreviewArea() {
   const handleRestart = () => {
     setRestartTrigger((prev) => prev + 1);
     executionStates.current = {};
+    clear();
   };
 
   // Check collisions between all sprites
   const checkCollisions = () => {
     for(let i = 0; i < sprites.length; i++) {
-      if(sprites[i].cooldown > 0) {
-        updateSpriteCooldown(sprites[i].id, sprites[i].cooldown-1);
-        continue
-      }
       for(let j = i + 1; j < sprites.length; j++) {
-        if(sprites[j].cooldown > 0) {
-          updateSpriteCooldown(sprites[j].id, sprites[j].cooldown-1);
-          continue;
-        }
-
         const sprite1 = sprites[i];
         const sprite2 = sprites[j];
         if(checkCollision(sprite1, sprite2)) {
@@ -81,8 +72,6 @@ export default function PreviewArea() {
             // Update both sprites with swapped actions
             updateSpriteActions(sprite1.id, newSprite1Actions);
             updateSpriteActions(sprite2.id, newSprite2Actions);
-            updateSpriteCooldown(sprite1.id, 5);
-            updateSpriteCooldown(sprite2.id, 5);
           }
         }
       }
